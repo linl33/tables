@@ -18,9 +18,11 @@ package org.opendatakit.tables.activities;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 import org.opendatakit.activities.BaseLauncherActivity;
 import org.opendatakit.consts.IntentConsts;
+import org.opendatakit.dependencies.DependencyChecker;
 import org.opendatakit.provider.TablesProviderAPI;
 import org.opendatakit.tables.utils.IntentUtil;
 import org.opendatakit.tables.utils.TableFileUtils;
@@ -51,6 +53,15 @@ public class Launcher extends BaseLauncherActivity {
   @Override
   protected void setAppSpecificPerms() {
     return;
+  }
+
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    Log.e("TABLES", "onCreate: !!!!!!!!!!!!! " + DependencyChecker.isPackageInstalled(getApplicationContext(), "org.openintents.filemanager"));
+    Log.e("TABLES", "onCreate: !!!!!!!!!!!!! " + DependencyChecker.isPackageInstalled(getApplicationContext(), "org.opendatakit.services"));
+    Log.e("TABLES", "onCreate: !!!!!!!!!!!!! " + DependencyChecker.isPackageInstalled(getApplicationContext(), "org.opendatakit.survey"));
+
+    super.onCreate(savedInstanceState);
   }
 
   /**
