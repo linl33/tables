@@ -8,6 +8,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.RemoteException;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
@@ -23,6 +24,7 @@ import androidx.test.uiautomator.Until;
 
 import org.opendatakit.tables.R;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -63,10 +65,16 @@ public class UAUtils {
         mDevice.findObject(By.clazz(Button.class)).click();
       }
 
+      mDevice.takeScreenshot(new File("/sdcard/screenshot/tables-screenshot-1-" + System.currentTimeMillis() + ".png"));
+
       //find the preference button
       UiObject2 preference = mDevice.wait(Until.findObject(By.res(Pattern.compile(
           "org.opendatakit.tables:id/menu_web_view_activity_table_manager" + "|"
               + "org.opendatakit.tables:id/menu_table_manager_preferences"))), OBJ_WAIT_TIMEOUT);
+
+      if (preference == null) {
+        mDevice.takeScreenshot(new File("/sdcard/screenshot/tables-screenshot-2-" + System.currentTimeMillis() + ".png"));
+      }
 
       //from the preference's content description see if custom home screen has been enabled
       if (preference.getContentDescription().equals(getString(R.string.preferences))) {
@@ -75,6 +83,7 @@ public class UAUtils {
         mDevice.wait(Until.findObject(By.text(CUSTOM_HOME)), OBJ_WAIT_TIMEOUT).click();
       }
     } catch (Exception e) {
+      Log.e("TABLES", "turnOnCustomHome: ", e);
       return false;
     } finally {
       mDevice.pressHome();

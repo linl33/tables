@@ -1,0 +1,153 @@
+name: Build with Gradle
+
+on:
+  workflow_dispatch:
+  push:
+
+env:
+  GRADLE_OPTS: '-Dorg.gradle.jvmargs=-Xmx1024M -Dorg.gradle.daemon=false'
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout development
+      uses: actions/checkout@v2
+      with:
+        ref: 'development'
+
+    - name: Set up JDK 8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 8
+
+    - name: Build
+      run: ./gradlew --stacktrace lintSnapshotBasicRelease assembleSnapshotBasicDebug
+
+    - name: Upload apk
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: tables_app-snapshot-basic-debug.apk
+        path: tables_app/build/outputs/apk/snapshotBasic/debug/tables_app-snapshot-basic-debug.apk
+        if-no-files-found: error
+
+    - name: Upload lint results
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: lint-results
+        path: tables_app/build/reports/lint-results-*
+        if-no-files-found: error
+
+  connected-test:
+    needs: build
+    runs-on: macos-10.15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # api: [21, 22, 23, 24, 25, 26, 27, 28]
+        api: [21, 22, 23, 24, 25, 26, 27, 28]
+
+    steps:
+    - name: Checkout development
+      uses: actions/checkout@v2
+      with:
+        # ref: development
+        path: tables
+
+    - name: Checkout Services
+      uses: actions/checkout@v2
+      with:
+        repository: odk-x/services
+        ref: development
+        path: services
+
+    - name: Checkout Survey
+      uses: actions/checkout@v2
+      with:
+        repository: odk-x/survey
+        ref: development
+        path: survey
+
+    - name: Checkout Application Designer
+      uses: actions/checkout@v2
+      with:
+        repository: odk-x/app-designer
+        ref: development
+        path: app-designer
+
+    - name: Checkout OI File Manager
+      uses: actions/checkout@v2
+      with:
+        repository: openintents/filemanager
+        ref: 2.3.1
+        path: filemanager
+
+    - name: Set up JDK 8
+      uses: actions/setup-java@v1
+      with:
+        java-version: 8
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: 14
+
+    - name: Set up app-designer
+      working-directory: app-designer
+      run: |
+        npm install grunt-cli
+        npm ci
+
+    - name: Run connectedSnapshotUitestDebugAndroidTest
+      uses: reactivecircus/android-emulator-runner@v2
+      timeout-minutes: 180
+      with:
+        working-directory: tables
+        api-level: ${{ matrix.api }}
+        target: google_apis
+        sdcard-path-or-size: 1024M
+        profile: Nexus 7
+        # these are the default options + -memory 4096
+        emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096
+        script: |
+          adb exec-out screencap -p > boot-screenshot.png
+          adb logcat > logcat.log 2>&1 &
+          cd ../services     && ./gradlew --stacktrace installSnapshotBasicDebug
+          cd ../survey       && ./gradlew --stacktrace installSnapshotBasicDebug
+          cd ../filemanager  && ./gradlew :FileManager:installPlayDebug
+          adb exec-out screencap -p > boot-screenshot-2.png
+          .github/workflows/fix-android-system-ui-anr.sh
+          .github/workflows/connectedAndroidTest.sh
+
+    - name: Upload androidTest results
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: androidTest-results-api${{ matrix.api }}
+        path: tables/tables_app/build/reports/androidTests
+        if-no-files-found: error
+
+    - name: Upload androidTest results (XML)
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: androidTest-results-api${{ matrix.api }}-xml
+        path: tables/tables_app/build/outputs/androidTest-results
+        if-no-files-found: error
+
+    - name: Upload logs
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs-api${{ matrix.api }}
+        if-no-files-found: error
+        path: |
+          tables/logcat.log
+          tables/default-output-logging
+          tables/screenshot
+          tables/boot-screenshot.png
+          tables/boot-screenshot-2.png
